@@ -1,0 +1,73 @@
+# Technical Assessment: Implementation Approach
+
+This document describes the detailed, best-practice approach for both assessment tasks, aligned with the requirements you provided. It is structured for clarity and easy explanation to any reviewer.
+
+---
+
+## Task 1: Data APIs & MongoDB (Backend Data Layer)
+
+### 1. Project Structure (Best Practices)
+- **models/**: Mongoose schemas for each collection (Agent, User, Account, LOB, Carrier, Policy)
+- **dao/**: Data Access Objects for all DB operations (encapsulate CRUD and queries)
+- **services/**: Business logic for each entity (e.g., policyService.js)
+- **controllers/**: Handle HTTP requests, call services, return responses
+- **routes/**: Express route definitions, mapping endpoints to controllers
+- **config/**: Centralized configuration (e.g., database connection)
+- **utils/**: Helper functions (e.g., CSV/XLSX parsing, CPU monitoring)
+- **client/**: External integrations if needed (e.g., notifications)
+- **app.js**: Main Express app setup
+- **index.js**: Entry point (starts server, handles process-level concerns)
+
+### 2. Data Model Design
+- Each type of information (Agent, User, Account, LOB, Carrier, Policy) is a separate MongoDB collection for normalization and efficient querying.
+- Relationships are handled by referencing keys (e.g., policy has user, carrier, and category references).
+
+### 3. File Upload API (CSV/XLSX) — Optimized & Async
+- **Endpoint:** `POST /upload`
+- **File Handling:** Use Multer for file upload.
+- **Worker Threads:**
+  - Offload heavy file parsing and DB writes to a worker thread to keep the main thread responsive.
+  - **Optimized Import Logic:**
+    - Use in-memory caches (maps) for each entity type (agent, user, account, carrier, LOB) during the import to minimize DB queries.
+    - For each row:
+      - Check the cache for the entity (e.g., agent name). If present, use the cached ObjectId.
+      - If not present, upsert/find in the database, then store the result in the cache for future rows.
+    - Use async/await and Promise.all to process rows concurrently in batches (throttled for DB safety).
+    - Insert policy records with all referenced ObjectIds.
+  - This approach is highly performant and scalable for large datasets (thousands of rows).
+
+### 4. Search API
+- **Endpoint:** `GET /policy/search?username=...`
+- **Function:** Find and return all policy info for a given username (search by firstname or email).
+
+### 5. Aggregation API
+- **Endpoint:** `GET /policy/aggregate`
+- **Function:** Aggregate and return policy information grouped by user (total policies, premium sums, etc.).
+
+---
+
+## Task 2: System Monitoring & Scheduling (Backend System Layer)
+
+### 1. Real-Time CPU Utilization & Auto-Restart
+- **Monitoring:** Use `os-utils` to monitor CPU usage at regular intervals (e.g., every 5 seconds).
+- **Threshold Action:** If CPU usage exceeds 70%, automatically restart the Node.js server.
+- **Restart Method:** Use `process.exit()` or integrate with a process manager (e.g., nodemon, PM2) for auto-restart and zero downtime.
+
+### 2. Scheduled Post-Service
+- **Endpoint:** `POST /schedule-message`
+- **Body Params:** `{ message, day, time }`
+- **Function:**
+  - Store the message and its scheduled time in the database.
+  - Use `node-cron` to schedule a job that inserts the message into the DB at the specified day and time.
+  - Ensure persistence so that scheduled jobs survive server restarts (reload jobs from DB on startup).
+
+---
+
+## Summary
+- **Separation of Concerns:** Each data entity is a separate MongoDB collection, and each layer (DAO, service, controller) has a single responsibility.
+- **Performance:** Worker threads and asynchronous operations prevent blocking, ensuring scalability.
+- **Reliability:** Automated CPU monitoring and restart keep the service healthy.
+- **Scheduling:** Cron-based scheduling enables time-based DB operations as required.
+- **Maintainability:** The codebase is modular, testable, and easy to extend.
+
+This approach ensures all assessment requirements are met in a robust, scalable, and maintainable manner, and you can confidently explain each part to any reviewer.

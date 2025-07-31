@@ -1,0 +1,23 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Log files
+logs/
+*.log
+
+# Uploaded files
+uploads/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Misc
+npm-debug.log*
